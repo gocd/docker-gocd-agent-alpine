@@ -17,36 +17,34 @@
 # Please file any issues or PRs at https://github.com/gocd/gocd
 ###############################################################################################
 
-FROM chainguard/bash:latest AS gocd-agent-unzip
+FROM docker.io/chainguard/bash:latest AS gocd-agent-unzip
 ARG TARGETARCH
 ARG UID=1000
-RUN curl --fail --location --silent --show-error "https://download.gocd.org/binaries/25.4.0-21793/generic/go-agent-25.4.0-21793.zip" > /tmp/go-agent-25.4.0-21793.zip && \
-    unzip -q /tmp/go-agent-25.4.0-21793.zip -d / && \
+RUN curl --fail --location --silent --show-error "https://download.gocd.org/binaries/26.1.0-22803/generic/go-agent-26.1.0-22803.zip" > /tmp/go-agent-26.1.0-22803.zip && \
+    unzip -q /tmp/go-agent-26.1.0-22803.zip -d / && \
     mkdir -p /go-agent/wrapper /go-agent/bin && \
-    mv -v /go-agent-25.4.0/LICENSE /go-agent/LICENSE && \
-    mv -v /go-agent-25.4.0/*.md /go-agent && \
-    mv -v /go-agent-25.4.0/bin/go-agent /go-agent/bin/go-agent && \
-    mv -v /go-agent-25.4.0/lib /go-agent/lib && \
-    mv -v /go-agent-25.4.0/logs /go-agent/logs && \
-    mv -v /go-agent-25.4.0/run /go-agent/run && \
-    mv -v /go-agent-25.4.0/wrapper-config /go-agent/wrapper-config && \
+    mv -v /go-agent-26.1.0/LICENSE /go-agent/LICENSE && \
+    mv -v /go-agent-26.1.0/*.md /go-agent && \
+    mv -v /go-agent-26.1.0/bin/go-agent /go-agent/bin/go-agent && \
+    mv -v /go-agent-26.1.0/lib /go-agent/lib && \
+    mv -v /go-agent-26.1.0/logs /go-agent/logs && \
+    mv -v /go-agent-26.1.0/run /go-agent/run && \
+    mv -v /go-agent-26.1.0/wrapper-config /go-agent/wrapper-config && \
     WRAPPERARCH=$(if [ $TARGETARCH == amd64 ]; then echo x86-64; elif [ $TARGETARCH == arm64 ]; then echo arm-64; else echo $TARGETARCH is unknown!; exit 1; fi) && \
-    mv -v /go-agent-25.4.0/wrapper/wrapper-linux-$WRAPPERARCH* /go-agent/wrapper/ && \
-    mv -v /go-agent-25.4.0/wrapper/libwrapper-linux-$WRAPPERARCH* /go-agent/wrapper/ && \
-    mv -v /go-agent-25.4.0/wrapper/wrapper.jar /go-agent/wrapper/ && \
+    mv -v /go-agent-26.1.0/wrapper/wrapper-linux-$WRAPPERARCH* /go-agent/wrapper/ && \
+    mv -v /go-agent-26.1.0/wrapper/libwrapper-linux-$WRAPPERARCH* /go-agent/wrapper/ && \
+    mv -v /go-agent-26.1.0/wrapper/wrapper.jar /go-agent/wrapper/ && \
     chown -R ${UID}:0 /go-agent && chmod -R g=u /go-agent
 FROM frolvlad/alpine-glibc:alpine-3 AS multistageinput
 FROM docker.io/alpine:3
 ARG TARGETARCH
 
-LABEL gocd.version="25.4.0" \
+LABEL gocd.version="26.1.0" \
   description="GoCD agent based on docker.io/alpine:3" \
   maintainer="GoCD Team <go-cd-dev@googlegroups.com>" \
   url="https://www.gocd.org" \
-  gocd.full.version="25.4.0-21793" \
-  gocd.git.sha="c8358258163d7b9833ab3b18a2f459999936b03a"
-
-ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-${TARGETARCH} /usr/local/sbin/tini
+  gocd.full.version="26.1.0-22803" \
+  gocd.git.sha="55b7b460510bb739c1ae6d226ff7fb650596dca2"
 
 # force encoding
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
@@ -57,13 +55,10 @@ ARG UID=1000
 ARG GID=1000
 COPY --from=multistageinput /usr/glibc-compat /usr/glibc-compat
 RUN \
-# add mode and permissions for files we added above
-  chmod 0755 /usr/local/sbin/tini && \
-  chown root:root /usr/local/sbin/tini && \
   apk --no-cache upgrade && \
 # add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
   adduser -D -u ${UID} -s /bin/bash -G root go && \
-  apk add --no-cache git openssh-client bash curl procps && \
+  apk add --no-cache tini-static git openssh-client bash curl procps && \
   # install glibc for the Tanuki Wrapper, and use by glibc-linked Adoptium JREs && \
     GLIBC_DIR=/usr/glibc-compat && \
     GLIBC_LIB=$([ "$(arch)" = "aarch64" ] && echo ld-linux-aarch64.so.1 || echo ld-linux-x86-64.so.2) && \
@@ -73,7 +68,7 @@ RUN \
     echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh && \
     ${GLIBC_DIR}/sbin/ldconfig && \
   # end installing glibc && \
-  curl --fail --location --silent --show-error "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.1%2B8/OpenJDK25U-jre_$(uname -m | sed -e s/86_//g)_linux_hotspot_25.0.1_8.tar.gz" --output /tmp/jre.tar.gz && \
+  curl --fail --location --silent --show-error "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.3%2B9/OpenJDK25U-jre_$(uname -m | sed -e s/86_//g)_linux_hotspot_25.0.3_9.tar.gz" --output /tmp/jre.tar.gz && \
   mkdir -p /gocd-jre && \
   tar -xf /tmp/jre.tar.gz -C /gocd-jre --strip 1 && \
   rm -rf /tmp/jre.tar.gz && \
@@ -91,6 +86,6 @@ VOLUME /go-working-dir
 VOLUME /godata
 
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["tini-static", "-g", "--", "/docker-entrypoint.sh"]
 
 USER go
